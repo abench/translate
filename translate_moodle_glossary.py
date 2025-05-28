@@ -1,8 +1,9 @@
 from dotenv import load_dotenv
-# import os
+import os
 import xml.etree.ElementTree as ET
 from bs4 import BeautifulSoup
 from openai import OpenAI
+from time import sleep
 # from reportlab.lib.pagesizes import A4
 # from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 # from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
@@ -10,27 +11,36 @@ from openai import OpenAI
 # from reportlab.pdfbase.ttfonts import TTFont
 # from reportlab.lib.units import mm
 
-# Client initialization
+
+
+# Read configuration
+
 load_dotenv()
+input_file = os.getenv("GLOSSARY_INPUT_XML_FILE")
+output_xml_file = os.getenv("GLOSSARY_OUTPUT_XML_FILE")
+output_pdf_file = os.getenv("GLOSSARY_OUTPUT_PDF_FILE")
+delay_between_requests = 2
+context = "All text are in from the computer architecture or operating systems domain. Prefer translation as in wikipedia" 
+
+# Client initialization
+
 client = OpenAI()
+print(client.models.list().to_dict()['data'])# Translate using OpenAI API
+sleep(delay_between_requests)  # Give some time for the client to initialize
 
-# === НАЛАШТУВАННЯ ===
-input_file = "Архітектура компютерів та операційні системи(1).xml"
-output_xml_file = "glossary_uk.xml"
-output_pdf_file = "glossary_uk.pdf"
-
-# === ПЕРЕКЛАД ТЕКСТУ ЧЕРЕЗ GPT ===
 def translate(text, source="en", target="ua"):
     if not text.strip():
         return text
-    prompt = f"Translate from {source} to {target}:\n{text}"
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}]
+    prompt = f"Translate from {source} to {target}\Context {context}\n Text for translation:\n {text}"
+    response = client.responses.create(
+        model="gpt-4o-mini-2024-07-18",
+        input=[{"role": "user", "content": prompt}]
     )
-    return response.choices[0].message.content.strip()
+    sleep(delay_between_requests)
+    return response.output_text.strip()
 
-# === ПЕРЕКЛАД HTML ЗІ ЗБЕРЕЖЕННЯМ ТЕГІВ ===
+# Translate, storing HTML tegs
+
 def translate_html(html_text):
     soup = BeautifulSoup(html_text, 'html.parser')
     for el in soup.find_all(string=True):
@@ -38,7 +48,9 @@ def translate_html(html_text):
             el.replace_with(translate(el))
     return str(soup)
 
-# === ЧИТАННЯ І ПЕРЕКЛАД XML ===
+# Reading and translation
+
+
 tree = ET.parse(input_file)
 root = tree.getroot()
 
@@ -54,11 +66,16 @@ for entry in root.findall(".//ENTRY"):
     if concept_el is not None:
         concept_el.text = concept_uk
 
+    print(f"Translated concept: {concept} {concept_uk}")  
+    
+
+
     # Переклад визначення з HTML
     definition_html = def_el.text if def_el is not None else ""
     definition_uk_html = translate_html(definition_html)
     if def_el is not None:
         def_el.text = definition_uk_html
+    print(f"Translated definition: {definition_html} {definition_uk_html}")
 
     # Для PDF — текст без тегів
     # text_only = BeautifulSoup(definition_uk_html, 'html.parser').get_text(separator=" ", strip=True)
@@ -87,4 +104,4 @@ tree.write(output_xml_file, encoding="utf-8", xml_declaration=True)
 
 # doc.build(story)
 
-print("✅ Готово: перекладено, збережено як XML і PDF")
+print("Translation complete.")
