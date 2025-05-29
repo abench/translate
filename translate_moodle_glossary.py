@@ -23,16 +23,46 @@ delay_between_requests = 2
 context = "All text are from the computer architecture or operating systems domain. " \
 "Prefer termin translation as in wikipedia" 
 
+translation_prompt = f"""You are a professional translator specializing in computer science, computer architecture, and operating systems.  
+Translate the following term and its definition from English to Ukrainian.  
+**For the term, use the translation most commonly used in the Ukrainian Wikipedia.**  
+For the definition, translate accurately, preserving technical meaning and clarity.  
+If the term is not present in Wikipedia, use the most widely accepted Ukrainian technical term.  
+Return only the translation, without explanations.\n\n"""
+
+
+
 # Client initialization
 
 client = OpenAI()
 print(client.models.list().to_dict()['data'])# Translate using OpenAI API
 sleep(delay_between_requests)  # Give some time for the client to initialize
 
-def translate(text, source="en", target="ua"):
+def translate(text, translation_type, source="en", target="ua"):
+    term_translation_prompt = f"""You are a professional translator specializing in computer science, computer architecture, and operating systems.
+                                    Translate the following term from English to Ukrainian.
+                                    Use the translation most commonly used in the Ukrainian Wikipedia.  
+                                    If the term is not present in Wikipedia, use the most widely accepted Ukrainian technical term.
+                                    Return only the translation, without explanations.
+
+                                    Term: {text}"""
+    definition_translation_prompt = f"""You are a professional translator specializing in computer science, computer architecture, and operating systems.
+                                        Translate the following definition from English to Ukrainian.
+                                        Translate accurately, preserving technical meaning and clarity.
+                                        Return only the translation, without explanations.
+                                        
+                                        Definition: {text}"""
+    
     if not text.strip():
         return text
-    prompt = f"Translate from {source} to {target}\n Context {context}\n Text for translation:\n {text}"
+    #prompt = f"Translate from {source} to {target}\n Context {context}\n Text for translation:\n {text}"
+    if translation_type == "term":
+        prompt = term_translation_prompt
+    elif translation_type == "definition":
+        prompt = definition_translation_prompt
+    else:
+        raise ValueError("Invalid translation type. Use 'term' or 'definition'.")
+    
     response = client.responses.create(
         model="gpt-4o-mini-2024-07-18",
         input=[{"role": "user", "content": prompt}]
@@ -42,11 +72,11 @@ def translate(text, source="en", target="ua"):
 
 # Translate, storing HTML tegs
 
-def translate_html(html_text):
+def translate_html(html_text,translation_type):
     soup = BeautifulSoup(html_text, 'html.parser')
     for el in soup.find_all(string=True):
         if el.strip():
-            el.replace_with(translate(el))
+            el.replace_with(translate(el,translation_type))
     return str(soup)
 
 # Reading and translation
@@ -63,20 +93,20 @@ for entry in root.findall(".//ENTRY"):
 
     # Переклад терміна
     concept = concept_el.text if concept_el is not None else ""
-    concept_uk = translate(concept)
+    concept_uk = translate(concept, "term") 
     if concept_el is not None:
         concept_el.text = concept_uk
 
-    print(f"Translated concept: {concept} {concept_uk}")  
+    print(f"Translated term: {concept} {concept_uk}")  
     
 
 
     # Переклад визначення з HTML
     definition_html = def_el.text if def_el is not None else ""
-    definition_uk_html = translate_html(definition_html)
+    definition_uk_html = translate_html(definition_html, "definition") 
     if def_el is not None:
         def_el.text = definition_uk_html
-    print(f"Translated definition: {definition_html} {definition_uk_html}")
+    print(f"Translated definition: \n {definition_html} \n {definition_uk_html}")
 
     # Для PDF — текст без тегів
     # text_only = BeautifulSoup(definition_uk_html, 'html.parser').get_text(separator=" ", strip=True)
