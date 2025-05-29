@@ -20,7 +20,8 @@ input_file = os.getenv("GLOSSARY_INPUT_XML_FILE")
 output_xml_file = os.getenv("GLOSSARY_OUTPUT_XML_FILE")
 output_pdf_file = os.getenv("GLOSSARY_OUTPUT_PDF_FILE")
 delay_between_requests = 2
-context = "All text are in from the computer architecture or operating systems domain. Prefer translation as in wikipedia" 
+context = "All text are from the computer architecture or operating systems domain. " \
+"Prefer termin translation as in wikipedia" 
 
 # Client initialization
 
@@ -31,7 +32,7 @@ sleep(delay_between_requests)  # Give some time for the client to initialize
 def translate(text, source="en", target="ua"):
     if not text.strip():
         return text
-    prompt = f"Translate from {source} to {target}\Context {context}\n Text for translation:\n {text}"
+    prompt = f"Translate from {source} to {target}\n Context {context}\n Text for translation:\n {text}"
     response = client.responses.create(
         model="gpt-4o-mini-2024-07-18",
         input=[{"role": "user", "content": prompt}]
